@@ -9,8 +9,9 @@ export function WindowManager() {
   return (
     <>
       {windows.map((w) => (
-        <Window key={w.id} window={w} />
+        <Window key={w.id} windowData={w} />
       ))}
+
 
       <button
         onClick={addWindow}

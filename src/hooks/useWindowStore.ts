@@ -22,7 +22,8 @@ export const useWindowStore = create<Store>((set) => ({
       const id = crypto.randomUUID()
       const width = 300
       const height = 200
-      // Keep windows inside viewport boundaries with some padding
+      
+      // keeping windows inside boundaries with some padding
       const x = Math.random() * (window.innerWidth - width - 20) + 10
       const y = Math.random() * (window.innerHeight - height - 20) + 10
       const color = `hsl(${Math.floor(Math.random() * 360)}, 70%, 70%)`
@@ -37,4 +38,10 @@ export const useWindowStore = create<Store>((set) => ({
     set((state) => ({
       windows: state.windows.filter((w) => w.id !== id)
     })),
+
+  updateWindowPosition: (id: string, x: number, y: number) =>
+    set((state) => ({
+      windows: state.windows.map((w) => (w.id === id ? { ...w, x, y } : w)),
+    })),
+
 }))
