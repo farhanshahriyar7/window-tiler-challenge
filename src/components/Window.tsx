@@ -19,6 +19,8 @@ export function Window({ windowData }: WindowProps) {
   const dragging = useRef(false)
   const dragStart = useRef<{ mouseX: number; mouseY: number; windowX: number; windowY: number } | null>(null)
   const [snapEdge, setSnapEdge] = useState<string | null>(null)
+  const snapWindow = useWindowStore((state) => state.snapWindow)
+
 
   // Handle drag start on top bar
   function onMouseDown(e: React.MouseEvent) {
@@ -60,8 +62,43 @@ export function Window({ windowData }: WindowProps) {
   function onMouseUp() {
     dragging.current = false
     dragStart.current = null
-    setSnapEdge(null) 
+
+    if (snapEdge) {
+      const win = windowData
+      let newX = win.x
+      let newY = win.y
+      let newWidth = win.width
+      let newHeight = win.height
+
+      if (snapEdge === 'left' || snapEdge === 'right') {
+        newWidth = window.innerWidth / 2
+        newHeight = win.height
+        newY = win.y // Keep current y
+
+        if (snapEdge === 'left') {
+          newX = 0
+        } else if (snapEdge === 'right') {
+          newX = window.innerWidth / 2
+        }
+      } else if (snapEdge === 'top' || snapEdge === 'bottom') {
+        newHeight = window.innerHeight / 2
+        newWidth = win.width
+        newX = win.x // Keep current x
+
+        if (snapEdge === 'top') {
+          newY = 0
+        } else if (snapEdge === 'bottom') {
+          newY = window.innerHeight / 2
+        }
+      }
+
+      // Called method to snap window to edge 
+      snapWindow(windowData.id, newX, newY, newWidth, newHeight)
+    }
+
+    setSnapEdge(null)
   }
+
 
   useEffect(() => {
     window.addEventListener('mousemove', onMouseMove)
