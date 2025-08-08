@@ -1,8 +1,10 @@
+import { WindowManager } from './components/WindowManager'
+
 function App() {
   return (
     <>
-      <h1 className="p-10 font-bold text-xl font-mono text-slate-600">
-        live long and prosper
+      <h1 className="relative w-full h-screen bg-gray-100 overflow-hidden">
+        <WindowManager />
       </h1>
     </>
   )
