@@ -9,22 +9,19 @@ export type WindowData = {
   color: string
 }
 
-// type Store = {
-//   windows: WindowData[]
-//   addWindow: () => void
-//   removeWindow: (id: string) => void
-// }
-
+// For managing window state
 type Store = {
   windows: WindowData[]
   addWindow: () => void
   removeWindow: (id: string) => void
   updateWindowPosition: (id: string, x: number, y: number) => void
   snapWindow: (id: string, x: number, y: number, width: number, height: number) => void
+  updateWindowSize: (id: string, width: number, height: number) => void
 }
 
-
+// For managing windows
 export const useWindowStore = create<Store>((set) => ({
+  // initial state with an empty array of windows
   windows: [],
   addWindow: () =>
     set((state) => {
@@ -44,6 +41,7 @@ export const useWindowStore = create<Store>((set) => ({
       }
     }),
 
+  // snap a window to an edge
   snapWindow: (id: string, x: number, y: number, width: number, height: number) =>
     set((state) => ({
       windows: state.windows.map((w) =>
@@ -51,14 +49,24 @@ export const useWindowStore = create<Store>((set) => ({
       ),
     })),
 
+  // remove a window
   removeWindow: (id) =>
     set((state) => ({
       windows: state.windows.filter((w) => w.id !== id)
     })),
 
+  // update window position
   updateWindowPosition: (id: string, x: number, y: number) =>
     set((state) => ({
       windows: state.windows.map((w) => (w.id === id ? { ...w, x, y } : w)),
+    })),
+
+  // update window size
+  updateWindowSize: (id: string, width: number, height: number) =>
+    set((state) => ({
+      windows: state.windows.map((w) =>
+        w.id === id ? { ...w, width, height } : w
+      ),
     })),
 
 }))

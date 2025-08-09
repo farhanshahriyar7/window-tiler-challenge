@@ -14,15 +14,17 @@ interface WindowProps {
 }
 
 export function Window({ windowData }: WindowProps) {
-  const removeWindow = useWindowStore((state) => state.removeWindow)
+  const removeWindow = useWindowStore((state) => state.removeWindow) 
   const updateWindowPosition = useWindowStore((state) => state.updateWindowPosition)
+  const updateWindowSize = useWindowStore((state) => state.updateWindowSize) 
   const dragging = useRef(false)
+  const resizing = useRef(false) // track resizing separately
   const dragStart = useRef<{ mouseX: number; mouseY: number; windowX: number; windowY: number } | null>(null)
+  const resizeStart = useRef<{ mouseX: number; mouseY: number; startWidth: number; startHeight: number } | null>(null)
   const [snapEdge, setSnapEdge] = useState<string | null>(null)
   const snapWindow = useWindowStore((state) => state.snapWindow)
 
-
-  // Handle drag start on top bar
+  // dragging logic
   function onMouseDown(e: React.MouseEvent) {
     dragging.current = true
     dragStart.current = {
@@ -31,10 +33,10 @@ export function Window({ windowData }: WindowProps) {
       windowX: windowData.x,
       windowY: windowData.y,
     }
-    e.preventDefault() // prevent text selection
+    e.preventDefault()
   }
 
-
+  // check the window is near an edge to snap
   function checkSnapEdge(newX: number, newY: number, width: number, height: number) {
     if (newX < 30) return 'left'
     if (window.innerWidth - (newX + width) < 30) return 'right'
@@ -43,67 +45,87 @@ export function Window({ windowData }: WindowProps) {
     return null
   }
 
-  function onMouseMove(e: MouseEvent) {
-    if (!dragging.current || !dragStart.current) return
-
-    const win = windowData
-    const deltaX = e.clientX - dragStart.current.mouseX
-    const deltaY = e.clientY - dragStart.current.mouseY
-
-    const newX = dragStart.current.windowX + deltaX
-    const newY = dragStart.current.windowY + deltaY
-
-    const edge = checkSnapEdge(newX, newY, win.width, win.height)
-    setSnapEdge(edge)
-
-    updateWindowPosition(win.id, newX, newY)
+  // resizing logic
+  function onResizeMouseDown(e: React.MouseEvent) {
+    e.stopPropagation() // stop dragging
+    resizing.current = true
+    resizeStart.current = {
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+      startWidth: windowData.width,
+      startHeight: windowData.height,
+    }
+    e.preventDefault()
   }
 
-  function onMouseUp() {
-    dragging.current = false
-    dragStart.current = null
-
-    if (snapEdge) {
+  function onMouseMove(e: MouseEvent) {
+    // dragging logic
+    if (dragging.current && dragStart.current) {
       const win = windowData
-      let newX = win.x
-      let newY = win.y
-      let newWidth = win.width
-      let newHeight = win.height
-
-      if (snapEdge === 'left' || snapEdge === 'right') {
-        newWidth = window.innerWidth / 2
-        newHeight = win.height
-        newY = win.y // Keep current y
-
-        if (snapEdge === 'left') {
-          newX = 0
-        } else if (snapEdge === 'right') {
-          newX = window.innerWidth / 2
-        }
-      } else if (snapEdge === 'top' || snapEdge === 'bottom') {
-        newHeight = window.innerHeight / 2
-        newWidth = win.width
-        newX = win.x // Keep current x
-
-        if (snapEdge === 'top') {
-          newY = 0
-        } else if (snapEdge === 'bottom') {
-          newY = window.innerHeight / 2
-        }
-      }
-
-      // Called method to snap window to edge 
-      snapWindow(windowData.id, newX, newY, newWidth, newHeight)
+      const deltaX = e.clientX - dragStart.current.mouseX
+      const deltaY = e.clientY - dragStart.current.mouseY
+      const newX = dragStart.current.windowX + deltaX
+      const newY = dragStart.current.windowY + deltaY
+      const edge = checkSnapEdge(newX, newY, win.width, win.height)
+      setSnapEdge(edge)
+      updateWindowPosition(win.id, newX, newY)
     }
 
-    setSnapEdge(null)
+    // resizing logic
+    if (resizing.current && resizeStart.current) {
+      const deltaX = e.clientX - resizeStart.current.mouseX
+      const deltaY = e.clientY - resizeStart.current.mouseY
+      const newWidth = Math.max(100, resizeStart.current.startWidth + deltaX)
+      const newHeight = Math.max(80, resizeStart.current.startHeight + deltaY)
+      updateWindowSize(windowData.id, newWidth, newHeight)
+    }
   }
 
+  // mouse up logic
+  function onMouseUp() {
+    if (dragging.current) {
+      dragging.current = false
+      dragStart.current = null
 
+      if (snapEdge) {
+        const win = windowData
+        let newX = win.x
+        let newY = win.y
+        let newWidth = win.width
+        let newHeight = win.height
+
+        if (snapEdge === 'left' || snapEdge === 'right') {
+          newWidth = window.innerWidth / 2
+          if (snapEdge === 'left') {
+            newX = 0
+          } else {
+            newX = window.innerWidth / 2
+          }
+        } else if (snapEdge === 'top' || snapEdge === 'bottom') {
+          newHeight = window.innerHeight / 2
+          if (snapEdge === 'top') {
+            newY = 0
+          } else {
+            newY = window.innerHeight / 2
+          }
+        }
+
+        snapWindow(windowData.id, newX, newY, newWidth, newHeight)
+      }
+
+      setSnapEdge(null)
+    }
+
+    if (resizing.current) {
+      resizing.current = false
+      resizeStart.current = null
+    }
+  }
+
+  // mouse event listeners
   useEffect(() => {
     window.addEventListener('mousemove', onMouseMove)
     window.addEventListener('mouseup', onMouseUp)
-
     return () => {
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onMouseUp)
@@ -131,27 +153,19 @@ export function Window({ windowData }: WindowProps) {
           className="text-white font-bold bg-red-500 w-6 h-6 flex items-center justify-center rounded-full hover:bg-red-600 transition"
           aria-label="Close Window"
           title="Close Window"
-          onMouseDown={(e) => e.stopPropagation()} // prevent drag on close click
+          onMouseDown={(e) => e.stopPropagation()}
         >
-          ×
+          x
         </button>
       </div>
 
-      {/* Snap indicator bars */}
-      {snapEdge === 'left' && (
-        <div className="absolute left-0 top-0 bottom-0 w-2 bg-blue-400 opacity-50 pointer-events-none rounded-l-md" />
-      )}
-      {snapEdge === 'right' && (
-        <div className="absolute right-0 top-0 bottom-0 w-2 bg-blue-400 opacity-50 pointer-events-none rounded-r-md" />
-      )}
-      {snapEdge === 'top' && (
-        <div className="absolute top-0 left-0 right-0 h-2 bg-blue-400 opacity-50 pointer-events-none rounded-t-md" />
-      )}
-      {snapEdge === 'bottom' && (
-        <div className="absolute bottom-0 left-0 right-0 h-2 bg-blue-400 opacity-50 pointer-events-none rounded-b-md" />
-      )}
+      {/* Snap indicators */}
+      {snapEdge === 'left' && <div className="absolute left-0 top-0 bottom-0 w-2 bg-blue-400 opacity-50 pointer-events-none rounded-l-md" />}
+      {snapEdge === 'right' && <div className="absolute right-0 top-0 bottom-0 w-2 bg-blue-400 opacity-50 pointer-events-none rounded-r-md" />}
+      {snapEdge === 'top' && <div className="absolute top-0 left-0 right-0 h-2 bg-blue-400 opacity-50 pointer-events-none rounded-t-md" />}
+      {snapEdge === 'bottom' && <div className="absolute bottom-0 left-0 right-0 h-2 bg-blue-400 opacity-50 pointer-events-none rounded-b-md" />}
 
-      {/* Content Area */}
+      {/* Content */}
       <div
         className="flex-1 p-4 rounded-b select-text"
         style={{ backgroundColor: windowData.color, color: '#1e293b' }}
@@ -159,7 +173,13 @@ export function Window({ windowData }: WindowProps) {
         <p>ID: {windowData.id}</p>
         {windowData.title && <p>{windowData.title}</p>}
       </div>
+
+      {/* Resize handle */}
+      <div
+        className="absolute bottom-0 right-0 w-4 h-4 bg-gray-500 cursor-se-resize rounded-tr-sm"
+        onMouseDown={onResizeMouseDown}
+        title="Resize"
+      />
     </div>
   )
 }
-
